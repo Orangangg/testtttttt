@@ -14,4 +14,189 @@
 
 
 
-!function(){"use strict";const e={container:".t-store__prod-snippet__container",sldsMain:".t-slds__main",slideItems:".t-slds__item",thumbsWrap:".t-slds__thumbsbullet-wrapper",optionInputs:".t-product__option-input"};function t(){return"complete"===document.readyState||"interactive"===document.readyState}function i(e){const t=e&&e.closest?e.closest('[id^="rec"]'):null,i=t?t.getAttribute("id"):"";return i?i.replace(/\D/g,""):""}function n(e){const t=e.querySelector(".t-slds__items-wrapper");if(!t)return{map:{},totals:0};const i=parseInt(t.getAttribute("data-slider-totalslides")||"0",10)||0,n=Array.from(e.querySelectorAll(".t-slds__item")).filter((e=>{const t=parseInt(e.getAttribute("data-slide-index")||"-1",10);return t>=1&&t<=i})),a={};return n.forEach((e=>{const t=parseInt(e.getAttribute("data-slide-index")||"-1",10),i=e.querySelector('meta[itemprop="caption"]')?.getAttribute("content")||"";i&&Number.isFinite(t)&&((a[i]??=[]).push(t))})),{map:a,totals:i}}function a(e,t){const a=e.querySelector(".t-slds__items-wrapper");if(!a)return;const{map:s,totals:r}=n(e);if(!r)return;const o=new Set(s[t]||[]);e.setAttribute("data-filter-active",o.size?"yes":"no");const l=Array.from(e.querySelectorAll(".t-slds__item"));l.forEach((e=>{const t=parseInt(e.getAttribute("data-slide-index")||"-1",10),i=t>=1&&t<=r,n=0===t||t===r+1;i?e.toggleAttribute("data-filter-hidden",!o.has(t)):n&&e.setAttribute("data-filter-hidden","")}));const d=e.querySelector(".t-slds__thumbsbullet-wrapper");d&&(o.size?d.setAttribute("data-filter-hidden",""):d.removeAttribute("data-filter-hidden"));const c=o.size?Math.min(...Array.from(o)):1;a.setAttribute("data-slider-pos",String(c));const u=i(e);"function"==typeof window.t_slds_updateSlider&&u&&window.t_slds_updateSlider(u)}function s(){if(document.getElementById("tp-slds-filter-css"))return;const e=document.createElement("style");e.id="tp-slds-filter-css",e.textContent=".t-slds__item[data-filter-hidden]{display:none!important}.t-slds__thumbsbullet-wrapper[data-filter-hidden]{display:none!important}",document.head.appendChild(e)}function r(i=10,n=700){let r=0;function o(){r++;const l=document.querySelector(e.container)||document.querySelector(".t-store__prod-popup__container")||document,d=l.querySelector(e.sldsMain),c=d&&d.querySelectorAll(e.slideItems).length>0;if(!d||!c)return r<i?setTimeout(o,n):void console.error("[productimages] Не нашли слайдер Tilda или слайды не подгрузились");try{if(s(),l.querySelectorAll(e.optionInputs).forEach((e=>{e.addEventListener("change",(function(){if(!this.checked)return;const e=String(this.value||"").trim();a(d,e)}),{passive:!0})})),function(){const t=l.querySelector(`${e.optionInputs}:checked`);t&&a(d,String(t.value||"").trim())}(),new MutationObserver((e=>{for(const t of e)if("attributes"!==t.type||"style"!==t.attributeName)if(t.addedNodes&&t.addedNodes.length){const e=l.querySelector(`${.t-product__option-input}:checked`)} })))console.log("[productimages] Инициализация успешна")}catch(e){console.error("[productimages] Ошибка инициализации:",e)}}t()?o():document.addEventListener("DOMContentLoaded",o)}window.addEventListener("load",(()=>r())),t()&&r()}();
+/* ============================================================================
+   Привязка фото к варианту товара БЕЗ разрушения DOM-слайдера Tilda.
+   Идея: не трогаем структуру .t-slds__items-wrapper и пули, только прячем/показываем.
+   Поддержка: карточка и попап. Требуется, чтобы у каждого .t-slds__item были meta[itemprop="caption"] и meta[itemprop="image"].
+   ============================================================================ */
+
+(function(){
+  'use strict';
+
+  /* ---------- Селекторы, завязанные на Tilda ---------- */
+  const SEL = {
+    container: '.t-store__prod-snippet__container',          // контейнер с карточкой товара
+    sldsMain: '.t-slds__main',                                // корневой узел слайдера
+    slideItems: '.t-slds__item',                              // слайды (включая клоны)
+    thumbsWrap: '.t-slds__thumbsbullet-wrapper',              // контейнер с пулями
+    optionInputs: '.t-product__option-input',                 // радио/кнопки вариантов (по имени "Комплектация" и т.п.)
+  };
+
+  /* ---------- Вспомогательные ---------- */
+  // Проверка готовности DOM
+  function domReady(){ return document.readyState === 'complete' || document.readyState === 'interactive'; }
+
+  // Безопасно получить recid для вызова t_slds_updateSlider
+  function getRecIdFrom(el){
+    // Ищем ближайший родитель с id вида rec123456
+    const host = el && el.closest ? el.closest('[id^="rec"]') : null;
+    const id = host ? host.getAttribute('id') : '';
+    return id ? id.replace(/\D/g,'') : '';
+  }
+
+  // Собираем карту: caption -> массив индексов слайдов (реальных, без клонов)
+  function buildCaptionIndexMap(main){
+    // Реальные слайды у Tilda имеют data-slide-index >= 1 и <= totalslides
+    const itemsWrap = main.querySelector('.t-slds__items-wrapper');
+    if(!itemsWrap) return { map:{}, totals:0 };
+
+    const totals = parseInt(itemsWrap.getAttribute('data-slider-totalslides')||'0',10) || 0;
+    const items = Array.from(main.querySelectorAll(SEL.slideItems))
+      .filter(n=>{ // оставляем только «реальные» слайды (исключаем клоны: index==0 и index==totals+1)
+        const idx = parseInt(n.getAttribute('data-slide-index')||'-1',10);
+        return idx>=1 && idx<=totals;
+      });
+
+    const map = {};
+    items.forEach(it=>{
+      const idx = parseInt(it.getAttribute('data-slide-index')||'-1',10);
+      const cap = it.querySelector('meta[itemprop="caption"]')?.getAttribute('content') || '';
+      if(!cap || !Number.isFinite(idx)) return;
+      (map[cap] ||= []).push(idx);
+    });
+
+    return { map, totals };
+  }
+
+  // Скрыть/показать слайды И пули, основываясь на целевом caption
+  function filterSlidesByCaption(main, caption){
+    const itemsWrap = main.querySelector('.t-slds__items-wrapper');
+    if(!itemsWrap) return;
+
+    const { map, totals } = buildCaptionIndexMap(main);
+    if(!totals) return;
+
+    // Какие индексы должны быть видимы
+    const targetIdxs = new Set((map[caption]||[]));
+
+    // Включаем «флаг фильтра» на корневом .t-slds__main (может пригодиться для CSS)
+    main.setAttribute('data-filter-active', targetIdxs.size ? 'yes' : 'no');
+
+    // Скрываем/показываем реальные слайды по их data-slide-index
+    const allItems = Array.from(main.querySelectorAll(SEL.slideItems));
+    allItems.forEach(node=>{
+      const idx = parseInt(node.getAttribute('data-slide-index')||'-1',10);
+      const isReal = idx>=1 && idx<=totals;           // реальные слайды
+      const isClone = idx===0 || idx===totals+1;      // клоны для бесконечного скролла
+      if(isReal){
+        node.toggleAttribute('data-filter-hidden', !targetIdxs.has(idx)); // ставим флаг скрытия
+      }else if(isClone){
+        // Клоны тоже прячем, чтобы не было «морганий» при перелистывании в край
+        node.setAttribute('data-filter-hidden','');
+      }
+    });
+
+    // Пули: желательно прятать, иначе индексы не совпадут. Проще всего — скрыть целиком обёртку с пулями.
+    const thumbsWrap = main.querySelector(SEL.thumbsWrap);
+    if(thumbsWrap){
+      // Если нужно — можно показывать только соответствующие пули по data-slide-bullet-for.
+      // Но самый безопасный вариант — убрать пули, когда фильтр активен.
+      if(targetIdxs.size) thumbsWrap.setAttribute('data-filter-hidden','');
+      else thumbsWrap.removeAttribute('data-filter-hidden');
+    }
+
+    // Сбрасываем текущую позицию слайдера на «первый видимый» (если есть)
+    const firstIdx = targetIdxs.size ? Math.min(...Array.from(targetIdxs)) : 1;
+    itemsWrap.setAttribute('data-slider-pos', String(firstIdx));
+
+    // Вызов штатной пересборки размеров/позиции слайдера
+    const recid = getRecIdFrom(main);
+    if(typeof window.t_slds_updateSlider === 'function' && recid){
+      window.t_slds_updateSlider(recid);
+    }
+  }
+
+  // Навешиваем CSS-правило один раз (прячем по data-атрибуту, не ломая layout)
+  function injectOnceCSS(){
+    if(document.getElementById('tp-slds-filter-css')) return;
+    const st = document.createElement('style');
+    st.id = 'tp-slds-filter-css';
+    st.textContent = `
+      /* Прячем слайды/клоны аккуратно */
+      .t-slds__item[data-filter-hidden]{display:none!important}
+      /* Прячем пули-обёртку при фильтре */
+      .t-slds__thumbsbullet-wrapper[data-filter-hidden]{display:none!important}
+    `;
+    document.head.appendChild(st);
+  }
+
+  // Основная инициализация с ретраями (t-slds рендерится не мгновенно)
+  function init(maxAttempts=10, interval=700){
+    let tries=0;
+
+    function tick(){
+      tries++;
+
+      // Ищем основной контейнер товара (для стабильного recid)
+      const cont = document.querySelector(SEL.container) || document.querySelector('.t-store__prod-popup__container') || document;
+      const main = cont.querySelector(SEL.sldsMain);
+      const hasSlides = main && main.querySelectorAll(SEL.slideItems).length>0;
+
+      if(!main || !hasSlides){
+        if(tries<maxAttempts) return setTimeout(tick, interval);
+        console.error('[productimages] Не нашли слайдер Tilda или слайды не подгрузились');
+        return;
+      }
+
+      try{
+        injectOnceCSS();
+
+        // Привязываем обработчик на смену опции
+        const inputs = cont.querySelectorAll(SEL.optionInputs);
+        inputs.forEach(inp=>{
+          inp.addEventListener('change', function(){
+            if(!this.checked) return;
+
+            // Ищем value выбранной опции и фильтруем по нему (caption должен совпадать 1-в-1)
+            const value = String(this.value||'').trim();
+            filterSlidesByCaption(main, value);
+          }, {passive:true});
+        });
+
+        // Первичная фильтрация по уже выбранной опции (если есть)
+        const selected = cont.querySelector(`${SEL.optionInputs}:checked`);
+        if(selected){
+          filterSlidesByCaption(main, String(selected.value||'').trim());
+        }
+
+        // Если Tilda перерисует слайдер (lazy, popup open и пр.), подстрахуемся через MutationObserver
+        const mo = new MutationObserver((muts)=>{
+          for(const m of muts){
+            if(m.type==='attributes' && m.attributeName==='style') continue;
+            if(m.addedNodes && m.addedNodes.length){
+              // Пересчёт caption-карты мог измениться (при догрузке), просто повторим фильтрацию по текущей выбранной опции
+              const sel = cont.querySelector(`${SEL.optionInputs}:checked`);
+              if(sel){ filterSlidesByCaption(main, String(sel.value||'').trim()); }
+            }
+          }
+        });
+        mo.observe(main, {childList:true, subtree:true, attributes:false});
+
+        // Финальный лог
+        console.log('[productimages] Инициализация успешна');
+
+      }catch(err){
+        console.error('[productimages] Ошибка инициализации:', err);
+      }
+    }
+
+    // Ждём DOM, затем ретраи
+    if(domReady()) tick(); else document.addEventListener('DOMContentLoaded', tick);
+  }
+
+  // Стартуем на load (Tilda часто дорисовывает позже)
+  window.addEventListener('load', ()=>init());
+  // И сразу пробуем (если всё уже на месте)
+  if(domReady()) init();
+
+})();
