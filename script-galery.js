@@ -1,3 +1,200 @@
 //Привязка фото к варианту товара
 
-const SELECTORS={container:".t-store__prod-snippet__container",slideItems:".t-slds__item",sliderContainer:".t-slds__container",itemsWrapper:".t-slds__items-wrapper",thumbsWrapper:".t-slds__thumbsbullet-wrapper",volumeOptions:".t-product__option-input"};let slides={};function updateSliderImages(e,t=!1){const s=slides[e],i=document.querySelector(SELECTORS.itemsWrapper),l=document.querySelector(SELECTORS.thumbsWrapper),o=document.querySelector(".t-slds__main");if(!i)return void console.error("Элемент wrapper не найден");const r=o.offsetHeight,n=o.offsetWidth;t||(o.style.height=`${r}px`,o.style.width=`${n}px`,o.style.overflow="hidden"),i.innerHTML="",l&&(l.innerHTML=""),(null==s?void 0:s.length)>0&&(()=>{const e=s[s.length-1],r=document.createElement("div");if(r.classList.add("t-slds__item","t-slds__item-loaded"),r.setAttribute("data-slide-index",0),r.setAttribute("aria-hidden",!0),r.innerHTML=`<div class="t-slds__wrapper"><div class="t-slds__imgwrapper t-zoomable" data-zoom-target="0" data-img-zoom-url="${e}" data-zoomable="yes"><div class="t-slds__bgimg t-bgimg" data-original="${e}" style="padding-bottom: 100%; background-image: url('${e}');"></div></div></div>`,i.appendChild(r),s.forEach((e,r)=>{const n=document.createElement("div");if(n.classList.add("t-slds__item","t-slds__item-loaded"),n.setAttribute("data-slide-index",r+1),0===r&&n.classList.add("t-slds__item_active"),n.innerHTML=`<div class="t-slds__wrapper"><div class="t-slds__imgwrapper t-zoomable" data-zoom-target="${r+1}" data-img-zoom-url="${e}" data-zoomable="yes"><div class="t-slds__bgimg t-bgimg" data-original="${e}" style="padding-bottom: 100%; background-image: url('${e}');"></div></div></div>`,i.appendChild(n),l){const t=document.createElement("div");t.classList.add("t-slds__thumbsbullet","t-slds__bullet"),t.setAttribute("data-slide-bullet-for",r+1),0===r&&t.classList.add("t-slds__bullet_active"),t.innerHTML=`<div class="t-slds__bgimg t-bgimg" data-original="${e}" style="padding-bottom: 100%; background-image: url('${e}');"></div><div class="t-slds__thumbsbullet-border"></div>`,l.appendChild(t)}}),(()=>{const e=s[0],l=document.createElement("div");l.classList.add("t-slds__item","t-slds__item-loaded"),l.setAttribute("data-slide-index",s.length+1),l.setAttribute("aria-hidden",!0),l.innerHTML=`<div class="t-slds__wrapper"><div class="t-slds__imgwrapper t-zoomable" data-zoom-target="${s.length+1}" data-img-zoom-url="${e}" data-zoomable="yes"><div class="t-slds__bgimg t-bgimg" data-original="${e}" style="padding-bottom: 100%; background-image: url('${e}');"></div></div></div>`,i.appendChild(l)})(),i.setAttribute("data-slider-totalslides",s.length),i.setAttribute("data-slider-pos",1),t||(i.style.transform="translateX(-800px)"),t||setTimeout(()=>{o.style.height="",o.style.width="",o.style.overflow=""},100)})()}function isDOMReady(){return"complete"===document.readyState||"interactive"===document.readyState}function initializeWithRetry(e=5,t=1e3){let s=0;function i(){if(s++,console.log(`Попытка инициализации ${s}`),!function(){const e=document.querySelector(SELECTORS.container),t=document.querySelectorAll(SELECTORS.slideItems),s=document.querySelector(SELECTORS.itemsWrapper);return!!(e&&t.length&&s)}())return s<e?(console.log("Элементы не найдены, повторная попытка..."),void setTimeout(i,t)):(console.error("Превышено максимальное количество попыток инициализации"),void 0);try{const t=document.querySelector(SELECTORS.container).parentNode?.getAttribute("id");if(!t)throw new Error("ID родительского элемента не найден");const l=t.replace(/\D/g,"");if(slides={},document.querySelectorAll(SELECTORS.slideItems).forEach(e=>{const t=e.querySelector('meta[itemprop="caption"]')?.getAttribute("content"),s=e.querySelector('meta[itemprop="image"]')?.getAttribute("content");t&&s&&(slides[t]||(slides[t]=[]),slides[t].includes(s)||slides[t].push(s))}),0===Object.keys(slides).length)throw new Error("Не удалось собрать информацию о слайдах");document.querySelectorAll(SELECTORS.volumeOptions).forEach(e=>{e.addEventListener("change",function(){this.checked&&(updateSliderImages(this.value,!1),"function"==typeof t_slds_updateSlider&&t_slds_updateSlider(l))})});const o=document.querySelector(`${SELECTORS.volumeOptions}:checked`);o&&(updateSliderImages(o.value,!0),"function"==typeof t_slds_updateSlider&&t_slds_updateSlider(l)),window.updateSliderImages=updateSliderImages,console.log("Инициализация успешно завершена")}catch(l){console.error("Ошибка инициализации слайдера:",l.message),s<e&&setTimeout(i,t)}}isDOMReady()?i():document.addEventListener("DOMContentLoaded",i)}window.addEventListener("load",function(){initializeWithRetry()}),isDOMReady()&&initializeWithRetry();
+
+ //Привязка фото к варианту товара
+
+const SELECTORS = {
+    container: '.t-store__prod-snippet__container',
+    slideItems: '.t-slds__item',
+    sliderContainer: '.t-slds__container',
+    itemsWrapper: '.t-slds__items-wrapper',
+    thumbsWrapper: '.t-slds__thumbsbullet-wrapper',
+    volumeOptions: '.t-product__option-input'
+};
+
+let slides = {};
+
+function updateSliderImages(option, isInitial = false) {
+    const slideImages = slides[option];
+    const sliderItemsWrapper = document.querySelector(SELECTORS.itemsWrapper);
+    const thumbsBulletWrapper = document.querySelector(SELECTORS.thumbsWrapper);
+    const mainSlider = document.querySelector('.t-slds__main');
+
+    if (!sliderItemsWrapper) {
+        console.error('Элемент wrapper не найден');
+        return;
+    }
+    const currentHeight = mainSlider.offsetHeight;
+    const currentWidth = mainSlider.offsetWidth;
+
+    if (!isInitial) {
+        mainSlider.style.height = `${currentHeight}px`;
+        mainSlider.style.width = `${currentWidth}px`;
+        mainSlider.style.overflow = 'hidden';
+    }
+
+    sliderItemsWrapper.innerHTML = '';
+    if (thumbsBulletWrapper) {
+        thumbsBulletWrapper.innerHTML = '';
+    }
+
+    if (slideImages?.length > 0) {
+        // Добавляем последний слайд в начало
+        const lastSlideImage = slideImages[slideImages.length - 1];
+        const lastSlide = document.createElement('div');
+        lastSlide.classList.add('t-slds__item', 't-slds__item-loaded');
+        lastSlide.setAttribute('data-slide-index', 0);
+        lastSlide.setAttribute('aria-hidden', true);
+        lastSlide.innerHTML = `<div class="t-slds__wrapper"><div class="t-slds__imgwrapper t-zoomable" data-zoom-target="0" data-img-zoom-url="${lastSlideImage}" data-zoomable="yes"><div class="t-slds__bgimg t-bgimg" data-original="${lastSlideImage}" style="padding-bottom: 100%; background-image: url('${lastSlideImage}');"></div></div></div>`;
+        sliderItemsWrapper.appendChild(lastSlide);
+
+        // Добавляем основные слайды
+        slideImages.forEach((slideImage, i) => {
+            const slide = document.createElement('div');
+            slide.classList.add('t-slds__item', 't-slds__item-loaded');
+            slide.setAttribute('data-slide-index', i + 1);
+            
+            if (i === 0) {
+                slide.classList.add('t-slds__item_active');
+            }
+            
+            slide.innerHTML = `<div class="t-slds__wrapper"><div class="t-slds__imgwrapper t-zoomable" data-zoom-target="${i + 1}" data-img-zoom-url="${slideImage}" data-zoomable="yes"><div class="t-slds__bgimg t-bgimg" data-original="${slideImage}" style="padding-bottom: 100%; background-image: url('${slideImage}');"></div></div></div>`;
+            sliderItemsWrapper.appendChild(slide);
+
+            if (thumbsBulletWrapper) {
+                const thumbsBullet = document.createElement('div');
+                thumbsBullet.classList.add('t-slds__thumbsbullet', 't-slds__bullet');
+                thumbsBullet.setAttribute('data-slide-bullet-for', i + 1);
+
+                if (i === 0) {
+                    thumbsBullet.classList.add('t-slds__bullet_active');
+                }
+                
+                thumbsBullet.innerHTML = `<div class="t-slds__bgimg t-bgimg" data-original="${slideImage}" style="padding-bottom: 100%; background-image: url('${slideImage}');"></div><div class="t-slds__thumbsbullet-border"></div>`;
+                thumbsBulletWrapper.appendChild(thumbsBullet);
+            }
+        });
+
+        const firstSlideImage = slideImages[0];
+        const firstSlide = document.createElement('div');
+        firstSlide.classList.add('t-slds__item', 't-slds__item-loaded');
+        firstSlide.setAttribute('data-slide-index', slideImages.length + 1);
+        firstSlide.setAttribute('aria-hidden', true);
+        firstSlide.innerHTML = `<div class="t-slds__wrapper"><div class="t-slds__imgwrapper t-zoomable" data-zoom-target="${slideImages.length + 1}" data-img-zoom-url="${firstSlideImage}" data-zoomable="yes"><div class="t-slds__bgimg t-bgimg" data-original="${firstSlideImage}" style="padding-bottom: 100%; background-image: url('${firstSlideImage}');"></div></div></div>`;
+        sliderItemsWrapper.appendChild(firstSlide);
+
+        sliderItemsWrapper.setAttribute('data-slider-totalslides', slideImages.length);
+        sliderItemsWrapper.setAttribute('data-slider-pos', 1);
+        
+        if (!isInitial) {
+            sliderItemsWrapper.style.transform = 'translateX(-800px)';
+        }
+        if (!isInitial) {
+            setTimeout(() => {
+                mainSlider.style.height = '';
+                mainSlider.style.width = '';
+                mainSlider.style.overflow = '';
+            }, 100);
+        }
+    }
+}
+
+function isDOMReady() {
+    return document.readyState === 'complete' || document.readyState === 'interactive';
+}
+
+function initializeWithRetry(maxAttempts = 5, interval = 1000) {
+    let attempts = 0;
+
+    function tryInitialize() {
+        attempts++;
+        console.log(`Попытка инициализации ${attempts}`);
+
+        const container = document.querySelector(SELECTORS.container);
+        const slideItems = document.querySelectorAll(SELECTORS.slideItems);
+        const sliderItemsWrapper = document.querySelector(SELECTORS.itemsWrapper);
+        const thumbsBulletWrapper = document.querySelector(SELECTORS.thumbsWrapper);
+
+        if (!container || !slideItems.length || !sliderItemsWrapper) {
+            if (attempts < maxAttempts) {
+                console.log('Элементы не найдены, повторная попытка...');
+                setTimeout(tryInitialize, interval);
+            } else {
+                console.error('Превышено максимальное количество попыток инициализации');
+            }
+            return;
+        }
+
+        try {
+            const parentId = container.parentNode?.getAttribute("id");
+            if (!parentId) {
+                throw new Error('ID родительского элемента не найден');
+            }
+
+            const prodidblock = parentId.replace(/\D/g, "");
+            slides = {}; // Очищаем объект slides перед инициализацией
+
+            // Собираем информацию о слайдах
+            slideItems.forEach(slideItem => {
+                const slideCaption = slideItem.querySelector('meta[itemprop="caption"]')?.getAttribute('content');
+                const slideImage = slideItem.querySelector('meta[itemprop="image"]')?.getAttribute('content');
+
+                if (slideCaption && slideImage) {
+                    if (!slides[slideCaption]) {
+                        slides[slideCaption] = [];
+                    }
+                    if (!slides[slideCaption].includes(slideImage)) {
+                        slides[slideCaption].push(slideImage);
+                    }
+                }
+            });
+
+            if (Object.keys(slides).length === 0) {
+                throw new Error('Не удалось собрать информацию о слайдах');
+            }
+
+            const volumeOptions = document.querySelectorAll(SELECTORS.volumeOptions);
+            volumeOptions.forEach(option => {
+                option.addEventListener('change', function() {
+                    if (this.checked) {
+                        updateSliderImages(this.value, false);
+                        if (typeof t_slds_updateSlider === 'function') {
+                            t_slds_updateSlider(prodidblock);
+                        }
+                    }
+                });
+            });
+
+            const selectedOption = document.querySelector(`${SELECTORS.volumeOptions}:checked`);
+            if (selectedOption) {
+                updateSliderImages(selectedOption.value, true);
+                if (typeof t_slds_updateSlider === 'function') {
+                    t_slds_updateSlider(prodidblock);
+                }
+            }
+
+            window.updateSliderImages = updateSliderImages;
+            console.log('Инициализация успешно завершена');
+
+        } catch (error) {
+            console.error('Ошибка инициализации слайдера:', error.message);
+            if (attempts < maxAttempts) {
+                setTimeout(tryInitialize, interval);
+            }
+        }
+    }
+
+    if (isDOMReady()) {
+        tryInitialize();
+    } else {
+        document.addEventListener('DOMContentLoaded', tryInitialize);
+    }
+}
+
+window.addEventListener('load', function() {
+    initializeWithRetry();
+});
+
+if (isDOMReady()) {
+    initializeWithRetry();
+}
